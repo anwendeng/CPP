@@ -15,7 +15,7 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="rs-imshow.cpp">
+    <ClCompile Include="rs_imshow_color_depth_ir.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
