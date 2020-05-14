@@ -1,6 +1,7 @@
 #include <string>
 #include <librealsense2/rs.hpp> // Include RealSense Cross Platform API
 #include <opencv2/opencv.hpp>   // Include OpenCV API
+//#include "cv-helpers.hpp"    // 不用
 
 using namespace std;
 using namespace cv;
@@ -14,6 +15,24 @@ auto gen_element (int erosion_size)
         Point(erosion_size, erosion_size));
 };
 
+Mat frame_to_mat(const frame& f) {
+    auto vf = f.as<video_frame>();
+    const int w = vf.get_width();
+    const int h = vf.get_height();
+    if (f.get_profile().format() == RS2_FORMAT_RGB8)
+    {
+        Mat color = Mat(h, w, CV_8UC3, (void*)f.get_data());
+        cvtColor(color, color, COLOR_RGB2BGR);
+        return color;
+    }
+    else if (f.get_profile().format() == RS2_FORMAT_Z16)
+    {
+        return Mat(h,w , CV_16UC1, (void*)f.get_data());
+    }
+    else
+        throw runtime_error("可能其他格式或者就是錯了");
+}
+
 int main(int argc, char * argv[]) try
 {
     // Define colorizer and align processing-blocks
@@ -25,10 +44,11 @@ int main(int argc, char * argv[]) try
     pipeline pipe;
     
     config cfg;
-    int w = 640, h = 480, fps = 15;//fps可省略可適用於不同的值fps錄製之串流檔
-    cfg.enable_stream(RS2_STREAM_COLOR, w, h, RS2_FORMAT_RGB8 /*, fps */ );
-    cfg.enable_stream(RS2_STREAM_DEPTH,  w, h, RS2_FORMAT_Z16 /*, fps */ );
-   
+    int w = 640, h = 480, fps=15;
+    cfg.enable_stream(RS2_STREAM_COLOR, w, h, RS2_FORMAT_RGB8, fps);
+    cfg.enable_stream(RS2_STREAM_DEPTH,  w, h, RS2_FORMAT_Z16, fps);
+  
+    //增加可以處理錄製"test.bag"
     cfg.enable_device_from_file("test.bag");
     pipe.start(cfg);
     
@@ -65,8 +85,7 @@ int main(int argc, char * argv[]) try
         frameset aligned_set = align_to.process(data);
         frame depth = aligned_set.get_depth_frame();
         //frame_to_mat定義在"cv-helpers.hpp"
-        Mat color_mat = Mat(h, w, CV_8UC3, (void*)data.get_color_frame().get_data());
-        cvtColor(color_mat, color_mat, COLOR_RGB2BGR);
+        Mat color_mat = frame_to_mat(aligned_set.get_color_frame());
         imshow("color", color_mat);
 
         // depth圖用colorizer著色成黑白圖，近為白，遠為黑
@@ -74,7 +93,7 @@ int main(int argc, char * argv[]) try
         frame bw_depth = depth.apply_filter(colorize);
         
         // Generate "near" mask image:
-        Mat near = Mat(h, w, CV_8UC3, (void*)bw_depth.get_data()); 
+        Mat near = frame_to_mat(bw_depth);
         cvtColor(near, near, COLOR_BGR2GRAY);
         imshow("near", near);
         // Take just values within range [180-255]
@@ -82,10 +101,11 @@ int main(int argc, char * argv[]) try
         create_mask_from_depth(near, 180, THRESH_BINARY);
 
         // Generate "far" mask image:
-        auto far = Mat(h, w, CV_8UC3, (void*)bw_depth.get_data());
+        auto far = frame_to_mat(bw_depth);
         cvtColor(far, far, COLOR_BGR2GRAY);
         far.setTo(255, far == 0); // Note: 0 value does not indicate pixel near the camera, and requires special attention 
-        create_mask_from_depth(far, 100, THRESH_BINARY_INV);    
+        create_mask_from_depth(far, 100, THRESH_BINARY_INV);
+        
 
         // GrabCut algorithm needs a mask with every pixel marked as either:
         // BGD, FGB, PR_BGD, PR_FGB
@@ -97,8 +117,8 @@ int main(int argc, char * argv[]) try
         
         // Run Grab-Cut algorithm:
         Mat bgModel, fgModel; 
-        //用 10次迭代
-        grabCut(color_mat, mask, Rect(), bgModel, fgModel, 10, GC_INIT_WITH_MASK);
+        //用 3次迭代
+        grabCut(color_mat, mask, Rect(), bgModel, fgModel, 3, GC_INIT_WITH_MASK);
 
         // Extract foreground pixels based on refined mask from the algorithm
         Mat3b foreground = Mat3b::zeros(color_mat.rows, color_mat.cols);
@@ -129,3 +149,6 @@ catch (const exception& e)
     system("Pause");
     return 1;
 }
+
+
+

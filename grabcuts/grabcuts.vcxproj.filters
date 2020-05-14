@@ -33,4 +33,12 @@
       <Filter>Resource Files</Filter>
     </Image>
   </ItemGroup>
+  <ItemGroup>
+    <None Include="test.bag">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="test1280x720.bag">
+      <Filter>Resource Files</Filter>
+    </None>
+  </ItemGroup>
 </Project>

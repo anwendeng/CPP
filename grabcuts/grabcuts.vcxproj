@@ -106,6 +106,10 @@
     <Image Include="2.png" />
     <Image Include="3.png" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="test.bag" />
+    <None Include="test1280x720.bag" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
